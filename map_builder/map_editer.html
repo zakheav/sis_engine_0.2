@@ -1,0 +1,140 @@
+<html>
+    <head>
+        <script src="js/jquery-2.1.1.min.js"></script>
+        <script src="bootstrap-3.2.0-dist/js/bootstrap.min.js"></script>
+        <link href="bootstrap-3.2.0-dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <br/><br/>
+        <canvas id="myCanvas" style="display: block; border:2px solid #aaa; margin:auto"></canvas>
+        <br/>
+        <input type="range" id="rangeHandler" style="margin: auto; display: block; width: 500px">
+        <div style="width: 500px; margin: auto">
+            <br/>
+            <form enctype="multipart/form-data" method="POST" target="upload" action="back_end.php" >
+                <input type="file" name="uploadFile" class="form-control"/>
+                <input type="submit" class="btn btn-block"/>
+            </form>
+            <iframe name="upload" style="display:none">
+            </iframe>
+            <button class="btn btn-block" id="show">show</button>
+            <button class="btn btn-block btn-info" id="save">save</button>
+        </div>
+    </body>
+
+    <script>
+        var canvas = document.getElementById("myCanvas");
+        var context = canvas.getContext("2d");
+        var row, col;
+        canvas.width = 500;
+        canvas.height = 300;
+        var img = new Image();
+        var map;//地图
+        var objectSize = 50;
+        var gridChange = 1;
+
+        function show_image(size){
+            if( $(window.frames["upload"].document).find("#ok").length > 0 ){
+                img.src = "map_resource/map.bmp";
+                img.onload = function(){
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    context.drawImage( img, 0, 0 );
+                    //绘制网格
+                    drawGrid( size );
+
+                    //绘制哪些单元格被设为障碍物
+                    for(var i=0; i<row; ++i){
+                        for(var j=0; j<col; ++j){
+                            if( map[i][j] == 1 ){
+                                context.fillStyle = 'rgba(100,225,225,0.5)';
+                                context.fillRect(j*objectSize, i*objectSize, objectSize, objectSize);
+                            }
+                        }
+                    }
+                };
+            } else{
+                //alert("picture is uploading right now, please wait.");
+            }
+        }
+        function draw(){
+            show_image(50);
+        }
+        $("#show").click(draw);
+
+        function drawGrid(size){//绘制网格
+            var h,w;
+            for( h=0,row=0; h<=canvas.height; h = h+parseInt(size),++row ){//绘制横格子
+                drawLine("#000", 2, {row:h, col:0}, {row:h, col:canvas.width});
+            }
+            for( w=0,col=0; w<=canvas.width; w = w+parseInt(size),++col ){//绘制纵格子
+                drawLine("#000", 2, {row:0, col:w}, {row:canvas.height, col:w});
+            }
+            //分配地图数组
+            if(gridChange == 1){
+                map = new Array(row);
+                for( var i=0; i<row; ++i ){
+                    map[i] = new Array(col);
+                    for( var j=0; j<col; ++j ){
+                        map[i][j] = 0;
+                    }
+                }
+                gridChange = 0;
+            }
+        }
+        function drawLine(color, width, begin, end){//绘制直线
+            context.strokeStyle=color;
+            context.lineWidth=width;
+            context.lineCap='square';
+            context.beginPath();
+            context.moveTo(begin.col, begin.row);
+            context.lineTo(end.col, end.row);
+            context.stroke();
+            context.closePath();
+        }
+
+        function changeGrid(){
+            gridChange = 1;
+            var size = $(this).val();
+            objectSize = size;
+            context.clearRect( 0, 0, canvas.width, canvas.height );
+            show_image(size);
+        }
+        $("#rangeHandler").change(changeGrid);
+
+        canvas.addEventListener("click", function (evt) {//点击canvas事件
+            var mousePos = getMousePos(canvas, evt);
+            var y = parseInt(mousePos.x/objectSize), x = parseInt(mousePos.y/objectSize);
+            map[x][y] = map[x][y] == 0 ? 1 : 0;
+
+            show_image(objectSize);
+
+
+        }, false);
+
+        function getMousePos(canvas, evt) {
+            var rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left ,
+                y: evt.clientY - rect.top
+            }
+        }
+
+        function save(){
+            $.ajax({
+                type: "post",
+                url: "saveMap.php",
+                dataType: "json",
+                data: {map: map, objSize: objectSize },
+                success: function(res){
+                    if(res.success == true){
+                        alert("save the map");
+                    } else{
+                        alert("map save error");
+                    }
+                }
+            });
+        }
+        $("#save").click(save);
+    </script>
+</html>

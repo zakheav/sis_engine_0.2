@@ -1,0 +1,280 @@
+<html>
+<head>
+    <link href="map_builder/bootstrap-3.2.0-dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <br/><br/>
+    <canvas id="myCanvas" tabindex="0" style="display: block; border:2px solid #aaa; margin:auto"></canvas>
+    <br/>
+</body>
+
+<script src="map_builder/js/jquery-2.1.1.min.js"></script>
+<script src="map_manager.js"></script>
+<script src="objClass.js"></script>
+<script src="AI.js"></script>
+<script src="base.js"></script>
+
+<script>
+    //载入地图数据
+    var mapData;
+    var std_size;
+    var map;
+    var AIS;//AI system
+    var player;
+    var bullets;
+    var guns = [];//枪支
+
+    var canvas = document.getElementById("myCanvas");
+    var context = canvas.getContext("2d");
+    //var player_reRouter = 0;
+    var time = 1;//时间常数
+    var loadCounter = 0;
+    var timeFlowLock = 0;
+
+    //存档管理
+    //var save_and_load = new Save_and_load();
+
+    //图片源文件地址索引表
+    var resources = new Array("map_builder/map_resource/map.bmp","resource/AI.png","resource/player.png","resource/bullet.bmp");
+    //图片对象索引表
+    var pictures = new Array(0);
+    for( var i=0; i<resources.length; ++i ){
+        pictures.push( new Image() );
+    }
+
+    //图片加载完毕后的处理函数
+    var processFunction = function(){
+        init_map();
+        init_AI();
+        init_bullets();
+        add_gun();
+        setInterval( "loop()", 100 );
+    };
+    //构造图片加载函数
+    function build_loadingFunction(pictureArr, resourceArr, index, finalFunction){
+        var f = function(){};
+        if( index<resources.length-1 ){
+            f = build_loadingFunction(pictureArr, resourceArr, index+1, finalFunction );
+        } else{
+            f = finalFunction;
+        }
+
+        return function(){
+            pictureArr[index].onload = f;
+            pictureArr[index].src = resourceArr[index];
+        };
+    }
+    var loadingFunction = build_loadingFunction( pictures, resources, 0, processFunction );//得到图片加载函数
+
+    function boost(){//启动
+        $.ajax({
+            type: "post",
+            url: "upload_mapdata.php",
+            dataType: "json",
+            data: { sig: "mapData" },
+            success: function(res){
+                if( res.success = true ){
+                    mapData = res.matrix;
+                    std_size = res.data;//加载地图数据
+                    loadingFunction();
+                }
+            }
+        });
+    }
+
+    function init_map(){//初始化地图
+        var row = mapData.length;
+        var col = mapData[0].length;
+        map = new Map( col, row );
+        var i,j;
+        for( i=1; i<=row; ++i ){
+            for( j=1; j<=col; ++j ){
+                if( mapData[i-1][j-1] == 1 ){
+                    map.add_objects(j,i,1);
+                }
+            }
+        }
+
+        var qt = {};
+        map.build_quadTree( row+0.5, 0.5, col+0.5, 0.5, map.get_objects(), qt );
+
+        map.set_quadTree(qt);//为map的四叉树赋值
+    }
+
+    function init_AI(){//初始化AI
+        player = new Player(8,7,0,map,null,AIS);
+        AIS = new AIManager();
+        AIS.addAI(5,4,1,map,player,AIS);
+        AIS.addAI(5,5,2,map,player,AIS);
+        AIS.addAI(5,5,3,map,player,AIS);
+    }
+
+    function init_bullets(){//存在与AI之间相互依赖的问题，初始化需要解决
+        bullets = new BulletManager(AIS, map, player);
+        bullets.set_timeParam(1);
+    }
+    function add_gun(){
+        for( var i=0; i<4; ++i ){
+            guns.push( new Gun( "rifle",5,10,bullets ) );
+        }
+        player.add_gun(guns[0]);
+        AIS.AITable[0].add_gun(guns[1]);
+        AIS.AITable[1].add_gun(guns[2]);
+        AIS.AITable[2].add_gun(guns[3]);
+        AIS.set_timeParam(1);
+    }//配枪，初始化时间常量
+
+    function loop(){//主循环
+        render();//渲染
+        if( player.get_life()>0 ){
+            if( timeFlowLock == 0 ){
+                for( var i=0; i<AIS.AITable.length; ++i ){
+                    if( AIS.AITable[i].get_life() > 0 ){
+                        if( AIS.AITable[i].isObject == false ){
+                            AIS.AITable[i].AI_run();
+                        } else{
+                            AIS.AITable[i].moveLikeObject({x:1,y:1});//参数没有意义
+                        }
+                    }
+                }//控制AI
+
+                player.go_directly();//按照当前指定位置寻路运动
+                player.get_gun().reload();//控制player
+
+                bullets.bulletsMoving();//控制子弹
+                bullets.bulletCollision();
+
+                //存档
+//            if( loadCounter == 5 ){
+//                save_and_load.save( AIS.AITable, bullets.get_bullets(), player );
+//                loadCounter = 0;
+//                console.log( save_and_load.get_savePool() );
+//            } else{
+//                ++loadCounter;
+//            }
+            }//时间正在倒流
+        } else{
+            alert("game over");
+        }
+
+
+    }
+
+    function draw_line( begin, end ){
+        context.strokeStyle='rgb(255,0,0)';
+        context.lineWidth=10;
+        context.lineCap='square';
+        context.beginPath();
+        context.moveTo(begin.x,begin.y);
+        context.lineTo(end.x,end.y);
+        context.stroke();
+        context.closePath();
+    }
+    function render(){//绘制每一帧图像
+        canvas.width = pictures[0].width;
+        canvas.height = pictures[0].height;
+        context.drawImage( pictures[0], 0, 0 );//绘制地图
+        var i, x, y;
+        x = ( player.get_coordinate().x - 0.5 ) * std_size;
+        y = ( player.get_coordinate().y - 0.5 ) * std_size;
+        context.drawImage( pictures[2], x, y );//绘制玩家
+
+        var alarm = 0;
+        for( i=0; i<AIS.AITable.length; ++i ){ //绘制AI
+            x = ( AIS.AITable[i].get_coordinate().x - 0.5 ) * std_size;
+            y = ( AIS.AITable[i].get_coordinate().y - 0.5 ) * std_size;
+            context.drawImage( pictures[1], x, y );
+            alarm = AIS.AITable[i].get_alarm()+alarm;
+        }
+
+        for( i=0; i<bullets.get_bullets().length; ++i ){//绘制子弹
+            x = ( (bullets.get_bullets())[i].get_nowPos().x - 0.5 ) * std_size;
+            y = ( (bullets.get_bullets())[i].get_nowPos().y - 0.5 ) * std_size;
+            context.drawImage( pictures[3], x, y );
+        }
+        var life = player.get_life();
+        draw_line( {x:5,y:5}, {x:5+life,y:5} );
+        draw_line( {x:200,y:5}, {x:200+alarm/5,y:5} );
+    }
+
+
+    //控制player位置
+    canvas.addEventListener( "click", function(evt){
+        var mousePos = getMousePos( canvas, evt );
+        var x = mousePos.x/std_size+0.5, y = mousePos.y/std_size+0.5;
+        player.change_destination( x, y );
+    }, false );
+    function getMousePos(canvas, evt) {
+        var rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left ,
+            y: evt.clientY - rect.top
+        }
+    }
+
+    //控制player射击,控制时间（变慢，倒流）,启动念力
+    var mousePosition = {x:0, y:0};
+    var timeSlowDown = 0;
+    canvas.addEventListener( "keydown", function(evt){
+        if( evt.keyCode == 87 ){//w按下
+            player.get_gun().shoot( player.get_coordinate(), mousePosition );//射击
+        }
+        if( evt.keyCode == 69 && timeSlowDown == 0 ){//e按下
+            timeSlowDown = 1;
+            player.get_gun().set_firingRate(10);
+            AIS.set_timeParam(10);
+            bullets.set_timeParam(10);
+        } else if( evt.keyCode == 69 && timeSlowDown == 1 ){
+            timeSlowDown = 0;
+            player.get_gun().set_firingRate(1);
+            AIS.set_timeParam(1);
+            bullets.set_timeParam(1);
+        }
+        if( evt.keyCode == 81 ){//按下q
+            for( var i=0; i<AIS.AITable.length; ++i ){
+                if( distance( AIS.AITable[i].get_coordinate(), player.get_coordinate() ) < 4 ){
+                    AIS.AITable[i].isObject = true;
+                    AIS.AITable[i].clear_router();
+                    var d = {
+                        x: AIS.AITable[i].get_coordinate().x - player.get_coordinate().x,
+                        y: AIS.AITable[i].get_coordinate().y - player.get_coordinate().y
+                    };
+                    AIS.AITable[i].moveLikeObject(d);
+                }
+            }
+            var bulletsArr = bullets.get_bullets();
+            for( i=0; i<bulletsArr.length; ++i ){
+
+                if( distance( bulletsArr[i].get_nowPos(),player.get_coordinate())<4 ){
+                    bulletsArr[i].set_direction(player.get_coordinate(),bulletsArr[i].get_nowPos());
+                }
+            }
+        }
+//        if( evt.keyCode == 81 ){//q按下
+//            if( save_and_load.get_savePoolLength() > 0 ){
+//                timeFlowLock = 1;//加锁
+//                var last = save_and_load.get_savePoolLength() - 1;
+//                save_and_load.load( last, AIS.AITable, bullets, player );
+//                sleep( 20 );
+//            }
+//
+//        }
+    }, true );
+//    canvas.addEventListener( "keyup", function(evt){
+//        if( evt.keyCode == 81 ){
+//            timeFlowLock = 0;//释放锁
+//        }
+//    } );
+    canvas.addEventListener( "mousemove", function(evt){
+        var mousePos = getMousePos( canvas, evt );
+        mousePosition.x = mousePos.x/std_size + 0.5;
+        mousePosition.y = mousePos.y/std_size + 0.5;
+
+    }, false );
+    canvas.focus();
+
+    boost();
+
+
+</script>
+</html>
