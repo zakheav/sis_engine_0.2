@@ -100,7 +100,6 @@
 
         map.set_quadTree(qt);//为map的四叉树赋值
     }
-
     function init_AI(){//初始化AI
         player = new Player(8,7,0,map,null,AIS);
         AIS = new AIManager();
@@ -108,7 +107,6 @@
         AIS.addAI(5,5,2,map,player,AIS);
         AIS.addAI(5,5,3,map,player,AIS);
     }
-
     function init_bullets(){//存在与AI之间相互依赖的问题，初始化需要解决
         bullets = new BulletManager(AIS, map, player);
         bullets.set_timeParam(1);
@@ -123,7 +121,6 @@
         AIS.AITable[2].add_gun(guns[3]);
         AIS.set_timeParam(1);
     }//配枪，初始化时间常量
-
     function loop(){//主循环
         render();//渲染
         if( player.get_life()>0 ){
@@ -160,15 +157,35 @@
 
     }
 
-    function draw_line( begin, end ){
-        context.strokeStyle='rgb(255,0,0)';
-        context.lineWidth=10;
+    function draw_line( begin, end, color ){
+        context.strokeStyle=color; //'rgb(255,0,0)';
+        context.lineWidth=3;
         context.lineCap='square';
         context.beginPath();
         context.moveTo(begin.x,begin.y);
         context.lineTo(end.x,end.y);
         context.stroke();
         context.closePath();
+    }
+    function HUD(){
+        //绘制玩家血量
+        var life = player.get_life();
+        var begin = { x:player.get_coordinate().x*std_size-50, y:player.get_coordinate().y*std_size-55 }, end = {x:begin.x+life/5, y:begin.y};
+        draw_line( begin, end, 'rgb(255,0,0)' );
+
+        //绘制AI警觉度和血量
+        for( var i=0; i<AIS.AITable.length; ++i ){
+            var alarm = AIS.AITable[i].get_alarm();
+            life = AIS.AITable[i].get_life();
+            begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-55 };
+            end = {x:begin.x+alarm/20, y:begin.y};
+            draw_line( begin, end, 'rgb(0,0,255)' );
+
+            begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-60 };
+            end = {x:begin.x+life/5, y:begin.y};
+            draw_line( begin, end, 'rgb(255,0,0)' );
+        }
+
     }
     function render(){//绘制每一帧图像
         canvas.width = pictures[0].width;
@@ -179,12 +196,12 @@
         y = ( player.get_coordinate().y - 0.5 ) * std_size;
         context.drawImage( pictures[2], x, y );//绘制玩家
 
-        var alarm = 0;
+
         for( i=0; i<AIS.AITable.length; ++i ){ //绘制AI
             x = ( AIS.AITable[i].get_coordinate().x - 0.5 ) * std_size;
             y = ( AIS.AITable[i].get_coordinate().y - 0.5 ) * std_size;
             context.drawImage( pictures[1], x, y );
-            alarm = AIS.AITable[i].get_alarm()+alarm;
+
         }
 
         for( i=0; i<bullets.get_bullets().length; ++i ){//绘制子弹
@@ -192,9 +209,8 @@
             y = ( (bullets.get_bullets())[i].get_nowPos().y - 0.5 ) * std_size;
             context.drawImage( pictures[3], x, y );
         }
-        var life = player.get_life();
-        draw_line( {x:5,y:5}, {x:5+life,y:5} );
-        draw_line( {x:200,y:5}, {x:200+alarm/5,y:5} );
+
+        HUD();//绘制HUD
     }
 
 

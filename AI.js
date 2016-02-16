@@ -359,7 +359,7 @@ function AI( x, y, id, map, player, AIManager ){
     this.get_ID = function() { return ID; };
     this.get_size = function() { return size; };
     this.get_life = function() { return life; };
-    this.decrease_life = function( dec ) { life -= dec; };
+    this.decrease_life = function( dec ) { life = life-dec < 0 ? 0 : life-dec; };
     this.heal_life = function( heal ) { life += heal; };
     this.get_coordinate = function() { return deepCopy( coordinate ); };
     this.get_pos = function() { return deepCopy( pos ); };
@@ -411,7 +411,7 @@ function AI( x, y, id, map, player, AIManager ){
             direction.dy = (objectMovingSpeed*d.y)/distance({x:0,y:0}, d);
             if( collisionSensor() ){//发生了碰撞
                 objectMovingSpeed = 0;
-                life = life - 5;//减血
+                life = life-5 < 0 ? 0 : life - 5;//减血
             } else{
                 coordinate.x = coordinate.x + direction.dx;
                 coordinate.y = coordinate.y + direction.dy;
@@ -641,10 +641,10 @@ function AI( x, y, id, map, player, AIManager ){
         //设置interestArr中敌人（玩家）的相关数据
         var playerCoordinate = thePlayer.get_coordinate();
         if( visionSensor( playerCoordinate, 10 ) ){
-            interestArr[0].alarm = interestArr[0].alarm + 5 > 400 ? 400 : interestArr[0].alarm + 5;
+            interestArr[0].alarm = interestArr[0].alarm + 5/timeParam > 400 ? 400 : interestArr[0].alarm + 5/timeParam;
             interestArr[0].coordinate = playerCoordinate;//记下玩家坐标
         } else{
-            interestArr[0].alarm = interestArr[0].alarm - 1 > 0 ? interestArr[0].alarm - 1 : 0;
+            interestArr[0].alarm = interestArr[0].alarm - 2/timeParam > 0 ? interestArr[0].alarm - 2/timeParam : 0;
         }
         //设置interestArr中友军尸体的相关数据
         var AITable = theAIManager.AITable;
