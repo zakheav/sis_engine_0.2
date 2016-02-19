@@ -106,19 +106,22 @@
         AIS.addAI(5,4,1,map,player,AIS);
         AIS.addAI(5,5,2,map,player,AIS);
         AIS.addAI(5,5,3,map,player,AIS);
+        AIS.addAI(5,5,4,map,player,AIS);
+        AIS.addAI(5,5,5,map,player,AIS);
     }
     function init_bullets(){//存在与AI之间相互依赖的问题，初始化需要解决
         bullets = new BulletManager(AIS, map, player);
         bullets.set_timeParam(1);
     }
     function add_gun(){
-        for( var i=0; i<4; ++i ){
+        for( var i=0; i<AIS.AITable.length+1; ++i ){
             guns.push( new Gun( "rifle",5,10,bullets ) );
+            if( i==0 ){
+                player.add_gun(guns[0]);
+            } else{
+                AIS.AITable[i-1].add_gun(guns[i]);
+            }
         }
-        player.add_gun(guns[0]);
-        AIS.AITable[0].add_gun(guns[1]);
-        AIS.AITable[1].add_gun(guns[2]);
-        AIS.AITable[2].add_gun(guns[3]);
         AIS.set_timeParam(1);
     }//配枪，初始化时间常量
     function loop(){//主循环
@@ -141,6 +144,16 @@
                 bullets.bulletsMoving();//控制子弹
                 bullets.bulletCollision();
 
+                if( timeSlowDown == 1 ){
+                    if( timeSlowLimit > 0 ){
+                        --timeSlowLimit;
+                    } else{
+                        timeSlowLimit = 200;
+                        //player.get_gun().set_firingRate(1);
+                        AIS.set_timeParam(1);
+                        bullets.set_timeParam(1);
+                    }
+                }
                 //存档
 //            if( loadCounter == 5 ){
 //                save_and_load.save( AIS.AITable, bullets.get_bullets(), player );
@@ -167,23 +180,48 @@
         context.stroke();
         context.closePath();
     }
+    function draw_text( begin, text ){
+        context.font = "15px Courier New";
+        //设置字体填充颜色
+        context.fillStyle = "blue";
+        //从坐标点(50,50)开始绘制文字
+        context.fillText(text, begin.x, begin.y);
+    }
     function HUD(){
-        //绘制玩家血量
+        //绘制玩家血量,能量槽
         var life = player.get_life();
         var begin = { x:player.get_coordinate().x*std_size-50, y:player.get_coordinate().y*std_size-55 }, end = {x:begin.x+life/5, y:begin.y};
-        draw_line( begin, end, 'rgb(255,0,0)' );
+        draw_line( begin, end, 'rgb(255,0,0)' );//血量
+        begin = { x:player.get_coordinate().x*std_size-50, y:player.get_coordinate().y*std_size-60 };
+        end = {x:begin.x+powerNum*2, y:begin.y};
+        draw_line( begin, end, 'rgb(0,255,0)' );//能量槽
 
         //绘制AI警觉度和血量
         for( var i=0; i<AIS.AITable.length; ++i ){
             var alarm = AIS.AITable[i].get_alarm();
             life = AIS.AITable[i].get_life();
-            begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-55 };
-            end = {x:begin.x+alarm/20, y:begin.y};
-            draw_line( begin, end, 'rgb(0,0,255)' );
+            if( life > 0 ){
+                begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-55 };
+                end = {x:begin.x+alarm/20, y:begin.y};
+                draw_line( begin, end, 'rgb(0,0,255)' );//警觉度
+            }
 
             begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-60 };
             end = {x:begin.x+life/5, y:begin.y};
-            draw_line( begin, end, 'rgb(255,0,0)' );
+            draw_line( begin, end, 'rgb(255,0,0)' );//血量
+
+            var sentences = AIS.AITable[i].get_sentences();
+            var notFinish = true;
+            for( key in sentences ){
+                for( var j=0; j<sentences[key].length && notFinish; ++j ){
+                    if( sentences[key][j][1] > 0 ){
+                        begin = { x:AIS.AITable[i].get_coordinate().x*std_size-80, y:AIS.AITable[i].get_coordinate().y*std_size-75 };
+                        draw_text(begin,sentences[key][j][0]);
+                        notFinish = false;
+                    }
+                }
+                if( !notFinish ){ break; }
+            }
         }
 
     }
@@ -231,39 +269,48 @@
     //控制player射击,控制时间（变慢，倒流）,启动念力
     var mousePosition = {x:0, y:0};
     var timeSlowDown = 0;
+    var powerNum = 10;//能量槽
+    var timeSlowLimit = 100;
     canvas.addEventListener( "keydown", function(evt){
         if( evt.keyCode == 87 ){//w按下
             player.get_gun().shoot( player.get_coordinate(), mousePosition );//射击
         }
         if( evt.keyCode == 69 && timeSlowDown == 0 ){//e按下
-            timeSlowDown = 1;
-            player.get_gun().set_firingRate(10);
-            AIS.set_timeParam(10);
-            bullets.set_timeParam(10);
+            if( powerNum > 0 ){
+                timeSlowDown = 1;
+                powerNum = powerNum - 0.5 > 0 ? powerNum - 0.5 : 0;
+                //player.get_gun().set_firingRate(10);
+                AIS.set_timeParam(10);
+                bullets.set_timeParam(10);
+            }
         } else if( evt.keyCode == 69 && timeSlowDown == 1 ){
+            timeSlowLimit = 200;
             timeSlowDown = 0;
-            player.get_gun().set_firingRate(1);
+            //player.get_gun().set_firingRate(1);
             AIS.set_timeParam(1);
             bullets.set_timeParam(1);
         }
         if( evt.keyCode == 81 ){//按下q
-            for( var i=0; i<AIS.AITable.length; ++i ){
-                if( distance( AIS.AITable[i].get_coordinate(), player.get_coordinate() ) < 4 ){
-                    AIS.AITable[i].isObject = true;
-                    AIS.AITable[i].clear_router();
-                    var d = {
-                        x: AIS.AITable[i].get_coordinate().x - player.get_coordinate().x,
-                        y: AIS.AITable[i].get_coordinate().y - player.get_coordinate().y
-                    };
-                    AIS.AITable[i].moveLikeObject(d);
+            if( powerNum > 0 ){
+                for( var i=0; i<AIS.AITable.length; ++i ){
+                    if( distance( AIS.AITable[i].get_coordinate(), player.get_coordinate() ) < 4 ){
+                        AIS.AITable[i].isObject = true;
+                        AIS.AITable[i].clear_router();
+                        var d = {
+                            x: AIS.AITable[i].get_coordinate().x - player.get_coordinate().x,
+                            y: AIS.AITable[i].get_coordinate().y - player.get_coordinate().y
+                        };
+                        AIS.AITable[i].moveLikeObject(d);
+                    }
                 }
-            }
-            var bulletsArr = bullets.get_bullets();
-            for( i=0; i<bulletsArr.length; ++i ){
+                var bulletsArr = bullets.get_bullets();
+                for( i=0; i<bulletsArr.length; ++i ){
 
-                if( distance( bulletsArr[i].get_nowPos(),player.get_coordinate())<4 ){
-                    bulletsArr[i].set_direction(player.get_coordinate(),bulletsArr[i].get_nowPos());
+                    if( distance( bulletsArr[i].get_nowPos(),player.get_coordinate())<4 ){
+                        bulletsArr[i].set_direction(player.get_coordinate(),bulletsArr[i].get_nowPos());
+                    }
                 }
+                powerNum = powerNum - 5;
             }
         }
 //        if( evt.keyCode == 81 ){//q按下

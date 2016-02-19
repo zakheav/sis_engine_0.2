@@ -310,6 +310,44 @@ function AI( x, y, id, map, player, AIManager ){
     var Astar_router = new Astar();
     /******************************************************************************************************************/
 
+    //语言
+    var sentences = {
+        "findSomething": [
+            ["damn,what`s that!", "0"],
+            ["holy crap! I see something!", "0"]
+        ],
+        "get_hurt": [
+            ["I am baddly hurt, cover me!", "0"],
+            ["shit!", "0"]
+        ],
+        "contact": [
+            ["fire at will!", "0"],
+            ["kill that bastard!", "0"]
+        ]
+    };
+    var say_something = function( type ){
+        var not_saying_rightnow = true;
+        for( var i=0; i<sentences[type].length; ++i ){
+            if( sentences[type][i][1] > 0 ){
+                not_saying_rightnow = false;
+            }
+        }
+        if( not_saying_rightnow ){
+            var index = Math.random()>0.5 ? 0 : 1;
+            sentences[type][index][1] = 50;
+        }
+    };
+    var sentences_timer = function(){
+        for( theKey in sentences ){
+            for( var i=0; i<sentences[theKey].length; ++i ){
+                sentences[theKey][i][1] = sentences[theKey][i][1]>0 ? sentences[theKey][i][1]-1 : 0;
+            }
+        }
+    };//让说的话停留一段时间
+    this.get_sentences = function(){
+        return deepCopy(sentences);
+    };
+
     /*私有属性标识了AI状态属性*****************************************************************************************/
     var ID = id;
     var size = 0.25;
@@ -329,7 +367,7 @@ function AI( x, y, id, map, player, AIManager ){
 
     var destination = { x:-1, y:-1 };//目标
     var timeParam = 1;
-    //var alarm = 0;
+
     /******************************************************************************************************************/
 
     /*对外接口，访问私有属性*******************************************************************************************/
@@ -716,15 +754,19 @@ function AI( x, y, id, map, player, AIManager ){
         if( interest.alarm <= 100 ){
             theAIFUNCTION_wandering();
         } else if( interest.alarm > 100 && interest.alarm < 200 ){
+            say_something("findSomething");
             if( theAIFUNCTION_attack() ){
+                say_something("contact");
                 theAIFUNCTION_fire();
             }
         } else{
             theAIFUNCTION_communication();
             if( theAIFUNCTION_attack() ){
+                say_something("contact");
                 theAIFUNCTION_fire();
             }
         }
+        sentences_timer();
     };
     /******************************************************************************************************************/
 }
