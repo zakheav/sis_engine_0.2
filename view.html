@@ -35,7 +35,19 @@
     //var save_and_load = new Save_and_load();
 
     //图片源文件地址索引表
-    var resources = new Array("map_builder/map_resource/map.bmp","resource/AI.png","resource/player.png","resource/bullet.bmp");
+    var resources = new Array(
+            "map_builder/map_resource/map.bmp",
+            "resource/right.png",
+            "resource/left.png",
+            "resource/up.png",
+            "resource/down.png",
+            "resource/up_right.png",
+            "resource/up_left.png",
+            "resource/down_right.png",
+            "resource/down_left.png",
+            "resource/player.png",
+            "resource/bullet.bmp"
+    );
     //图片对象索引表
     var pictures = new Array(0);
     for( var i=0; i<resources.length; ++i ){
@@ -106,8 +118,8 @@
         AIS.addAI(5,4,1,map,player,AIS);
         AIS.addAI(5,5,2,map,player,AIS);
         AIS.addAI(5,5,3,map,player,AIS);
-        AIS.addAI(5,5,4,map,player,AIS);
-        AIS.addAI(5,5,5,map,player,AIS);
+//        AIS.addAI(5,5,4,map,player,AIS);
+//        AIS.addAI(5,5,5,map,player,AIS);
     }
     function init_bullets(){//存在与AI之间相互依赖的问题，初始化需要解决
         bullets = new BulletManager(AIS, map, player);
@@ -204,26 +216,70 @@
                 begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-55 };
                 end = {x:begin.x+alarm/20, y:begin.y};
                 draw_line( begin, end, 'rgb(0,0,255)' );//警觉度
+
+                var sentences = AIS.AITable[i].get_sentences();
+                var notFinish = true;
+                for( key in sentences ){
+                    for( var j=0; j<sentences[key].length && notFinish; ++j ){
+                        if( sentences[key][j][1] > 0 ){
+                            begin = { x:AIS.AITable[i].get_coordinate().x*std_size-80, y:AIS.AITable[i].get_coordinate().y*std_size-75 };
+                            draw_text(begin,sentences[key][j][0]);
+                            notFinish = false;
+                        }
+                    }
+                    if( !notFinish ){ break; }
+                }
             }
 
             begin = { x:AIS.AITable[i].get_coordinate().x*std_size-50, y:AIS.AITable[i].get_coordinate().y*std_size-60 };
             end = {x:begin.x+life/5, y:begin.y};
             draw_line( begin, end, 'rgb(255,0,0)' );//血量
 
-            var sentences = AIS.AITable[i].get_sentences();
-            var notFinish = true;
-            for( key in sentences ){
-                for( var j=0; j<sentences[key].length && notFinish; ++j ){
-                    if( sentences[key][j][1] > 0 ){
-                        begin = { x:AIS.AITable[i].get_coordinate().x*std_size-80, y:AIS.AITable[i].get_coordinate().y*std_size-75 };
-                        draw_text(begin,sentences[key][j][0]);
-                        notFinish = false;
-                    }
-                }
-                if( !notFinish ){ break; }
-            }
+
         }
 
+    }
+
+    function judge_direction( direction ){
+        if( direction.dx > 0 ){
+            if( direction.dy/direction.dx > 0.87 ){
+                return "down";
+            }
+            if( direction.dy/direction.dx >= 0.37 && direction.dy/direction.dx <= 0.87 ){
+                return "down_right";
+            }
+            if( direction.dy/direction.dx > -0.37 && direction.dy/direction.dx < 0.37 ){
+                return "right";
+            }
+            if( direction.dy/direction.dx >= -0.87 && direction.dy/direction.dx <= -0.37 ){
+                return "up_right";
+            }
+            if( direction.dy/direction.dx < -0.87 ){
+                return "up";
+            }
+        } else if( direction.dx == 0 ){
+            if( direction.dy > 0 ){
+                return "down";
+            } else{
+                return "up";
+            }
+        } else{
+            if( direction.dy/direction.dx > 0.87 ){
+                return "up";
+            }
+            if( direction.dy/direction.dx >= 0.37 && direction.dy/direction.dx <= 0.87 ){
+                return "up_left";
+            }
+            if( direction.dy/direction.dx > -0.37 && direction.dy/direction.dx < 0.37 ){
+                return "left";
+            }
+            if( direction.dy/direction.dx >= -0.87 && direction.dy/direction.dx <= -0.37 ){
+                return "down_left";
+            }
+            if( direction.dy/direction.dx < -0.87 ){
+                return "down";
+            }
+        }
     }
     function render(){//绘制每一帧图像
         canvas.width = pictures[0].width;
@@ -232,20 +288,37 @@
         var i, x, y;
         x = ( player.get_coordinate().x - 0.5 ) * std_size;
         y = ( player.get_coordinate().y - 0.5 ) * std_size;
-        context.drawImage( pictures[2], x, y );//绘制玩家
+        context.drawImage( pictures[9], x, y );//绘制玩家
 
 
         for( i=0; i<AIS.AITable.length; ++i ){ //绘制AI
             x = ( AIS.AITable[i].get_coordinate().x - 0.5 ) * std_size;
             y = ( AIS.AITable[i].get_coordinate().y - 0.5 ) * std_size;
-            context.drawImage( pictures[1], x, y );
 
+            var dir = judge_direction( AIS.AITable[i].get_direction() );
+
+            if( dir == "right" )
+                context.drawImage( pictures[1], x, y );
+            if( dir == "left" )
+                context.drawImage( pictures[2], x, y );
+            if( dir == "up" )
+                context.drawImage( pictures[3], x, y );
+            if( dir == "down" )
+                context.drawImage( pictures[4], x, y );
+            if( dir == "up_right" )
+                context.drawImage( pictures[5], x, y );
+            if( dir == "up_left" )
+                context.drawImage( pictures[6], x, y );
+            if( dir == "down_right" )
+                context.drawImage( pictures[7], x, y );
+            if( dir == "down_left" )
+                context.drawImage( pictures[8], x, y );
         }
 
         for( i=0; i<bullets.get_bullets().length; ++i ){//绘制子弹
             x = ( (bullets.get_bullets())[i].get_nowPos().x - 0.5 ) * std_size;
             y = ( (bullets.get_bullets())[i].get_nowPos().y - 0.5 ) * std_size;
-            context.drawImage( pictures[3], x, y );
+            context.drawImage( pictures[10], x, y );
         }
 
         HUD();//绘制HUD

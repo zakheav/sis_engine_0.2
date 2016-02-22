@@ -256,6 +256,19 @@ function AI( x, y, id, map, player, AIManager ){
     var theAIManager = AIManager;
     var theGun = {}; //枪与AI之间的依赖
     /*传感器***********************************************************************************************************/
+
+    var memory = [];//长期记忆体，把短期记忆中的一些事物长期存储
+    var interestArr = [];//在AI运行过程中充当短期记忆体，保存感兴趣的事物，每个事物在数组中从左到右优先级递减
+    interestArr[0] = {
+        name: "enemy",
+        coordinate: {x:-1, y:-1},
+        alarm: 0
+    };
+    interestArr[1] = {
+        name: "body",
+        coordinate: {x:-1, y:-1},
+        alarm: 0
+    };
     var visionSensor = function( sight_end, scale ){
         var sight_begin = { x:coordinate.x, y:coordinate.y };
         if( distance(sight_begin,sight_end) < scale ){
@@ -308,13 +321,18 @@ function AI( x, y, id, map, player, AIManager ){
 
     //A星算法自动寻路对象
     var Astar_router = new Astar();
+
+    this.decrease_life = function( dec ) {//受损传感器
+        life = life-dec < 0 ? 0 : life-dec;
+        interestArr[0].alarm = interestArr[0].alarm < 100 ? 105 : interestArr[0].alarm;
+    };
     /******************************************************************************************************************/
 
     //语言
     var sentences = {
         "findSomething": [
-            ["damn,what`s that!", "0"],
-            ["holy crap! I see something!", "0"]
+            ["damn!", "0"],
+            ["holy crap!", "0"]
         ],
         "get_hurt": [
             ["I am baddly hurt, cover me!", "0"],
@@ -397,7 +415,7 @@ function AI( x, y, id, map, player, AIManager ){
     this.get_ID = function() { return ID; };
     this.get_size = function() { return size; };
     this.get_life = function() { return life; };
-    this.decrease_life = function( dec ) { life = life-dec < 0 ? 0 : life-dec; };
+
     this.heal_life = function( heal ) { life += heal; };
     this.get_coordinate = function() { return deepCopy( coordinate ); };
     this.get_pos = function() { return deepCopy( pos ); };
@@ -525,7 +543,8 @@ function AI( x, y, id, map, player, AIManager ){
                 nextStep.x = nextStep.x + ( Math.random() - 0.5 ) * 0.5;
                 nextStep.y = nextStep.y + ( Math.random() - 0.5 ) * 0.5;
             } else{
-                direction.dx = direction.dy = 0;//立正
+                direction.dx = player.get_coordinate().x-coordinate.x;
+                direction.dy = player.get_coordinate().y-coordinate.y;//朝向玩家
                 nextStep.x = -1;//coordinate.x;
                 nextStep.y = -1;//coordinate.y;//必须这样
             }
@@ -661,19 +680,6 @@ function AI( x, y, id, map, player, AIManager ){
         }
     }; //警报
 
-
-    var memory = [];//长期记忆体，把短期记忆中的一些事物长期存储
-    var interestArr = [];//在AI运行过程中充当短期记忆体，保存感兴趣的事物，每个事物在数组中从左到右优先级递减
-    interestArr[0] = {
-        name: "enemy",
-        coordinate: {x:-1, y:-1},
-        alarm: 0
-    };
-    interestArr[1] = {
-        name: "body",
-        coordinate: {x:-1, y:-1},
-        alarm: 0
-    };
     var theAIFUNCTION_interestAwareness = function(){
         flag[3][1] = 1;//当前系统调用被激活
         //设置interestArr中敌人（玩家）的相关数据
