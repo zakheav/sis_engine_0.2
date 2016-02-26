@@ -45,7 +45,14 @@
             "resource/up_left.png",
             "resource/down_right.png",
             "resource/down_left.png",
-            "resource/player.png",
+            "resource/p_right.png",
+            "resource/p_left.png",
+            "resource/p_up.png",
+            "resource/p_down.png",
+            "resource/p_up_right.png",
+            "resource/p_up_left.png",
+            "resource/p_down_right.png",
+            "resource/p_down_left.png",
             "resource/bullet.bmp"
     );
     //图片对象索引表
@@ -113,7 +120,7 @@
         map.set_quadTree(qt);//为map的四叉树赋值
     }
     function init_AI(){//初始化AI
-        player = new Player(8,7,0,map,null,AIS);
+        player = new Player(1,8,0,map,null,AIS);
         AIS = new AIManager();
         AIS.addAI(5,4,1,map,player,AIS);
         AIS.addAI(5,5,2,map,player,AIS);
@@ -288,14 +295,31 @@
         var i, x, y;
         x = ( player.get_coordinate().x - 0.5 ) * std_size;
         y = ( player.get_coordinate().y - 0.5 ) * std_size;
-        context.drawImage( pictures[9], x, y );//绘制玩家
+
+        var dir = judge_direction( player.get_direction() );
+        if( dir == "right" )
+            context.drawImage( pictures[9], x, y, 45, 30 );
+        if( dir == "left" )
+            context.drawImage( pictures[10], x, y, 45, 30 );
+        if( dir == "up" )
+            context.drawImage( pictures[11], x, y, 30, 45 );
+        if( dir == "down" )
+            context.drawImage( pictures[12], x, y, 30, 45 );
+        if( dir == "up_right" )
+            context.drawImage( pictures[13], x, y, 45, 30 );
+        if( dir == "up_left" )
+            context.drawImage( pictures[14], x, y, 30, 45 );
+        if( dir == "down_right" )
+            context.drawImage( pictures[15], x, y, 30, 45 );
+        if( dir == "down_left" )
+            context.drawImage( pictures[16], x, y, 45, 30 );
 
 
         for( i=0; i<AIS.AITable.length; ++i ){ //绘制AI
             x = ( AIS.AITable[i].get_coordinate().x - 0.5 ) * std_size;
             y = ( AIS.AITable[i].get_coordinate().y - 0.5 ) * std_size;
 
-            var dir = judge_direction( AIS.AITable[i].get_direction() );
+            dir = judge_direction( AIS.AITable[i].get_direction() );
 
             if( dir == "right" )
                 context.drawImage( pictures[1], x, y );
@@ -318,7 +342,7 @@
         for( i=0; i<bullets.get_bullets().length; ++i ){//绘制子弹
             x = ( (bullets.get_bullets())[i].get_nowPos().x - 0.5 ) * std_size;
             y = ( (bullets.get_bullets())[i].get_nowPos().y - 0.5 ) * std_size;
-            context.drawImage( pictures[10], x, y );
+            context.drawImage( pictures[17], x, y );
         }
 
         HUD();//绘制HUD
